@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TimeOS — your schedule that thinks ahead</title>
+<style>
+  :root {
+    --bg: #0b1220; --panel: #111a2e; --panel2: #0f1728; --line: #1f2c47;
+    --text: #e8edf7; --muted: #8fa1c0; --accent: #ff9900; --cyan: #4dd8ff;
+    --green: #3ddc84; --red: #ff6b6b; --amber: #ffc857;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(1200px 600px at 80% -10%, #16223d 0%, var(--bg) 55%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: flex; flex-direction: column;
+  }
+  header {
+    display: flex; align-items: center; gap: 14px; padding: 12px 20px;
+    border-bottom: 1px solid var(--line); background: rgba(11,18,32,.7); backdrop-filter: blur(8px);
+    position: sticky; top: 0; z-index: 5;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: .3px; }
+  .logo .dot { width: 26px; height: 26px; border-radius: 50%;
+    background: conic-gradient(from 210deg, var(--accent), var(--cyan), var(--accent)); }
+  .tag { color: var(--muted); font-size: 12px; margin-left: 4px; }
+  .spacer { flex: 1; }
+  .btn {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px 14px; font-size: 13px; cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: linear-gradient(135deg, #ff9900, #ff7a00); color: #111; border: none; font-weight: 600; }
+  .btn.small { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
+  .btn.ghost { background: transparent; }
+  #googleBtn.ok { border-color: var(--green); color: var(--green); }
+  main { flex: 1; display: flex; gap: 16px; padding: 16px 20px; min-height: 0; }
+  .left-col { flex: 1.3; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .dash-col { flex: 1; display: flex; flex-direction: column; gap: 12px; min-width: 0; overflow-y: auto; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+  .panel h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 10px; }
+
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .action-btn { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px;
+    font-size: 13px; cursor: pointer; color: var(--text); display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+  .action-btn .sub { font-size: 10.5px; color: var(--muted); }
+  .action-btn:hover { border-color: var(--accent); }
+
+  form.inline { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+  form.inline label { font-size: 11.5px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+  form.inline input, form.inline select, form.inline textarea {
+    background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; color: var(--text);
+    padding: 9px 12px; font-size: 13.5px; outline: none; font-family: inherit;
+  }
+  form.inline input:focus, form.inline select:focus, form.inline textarea:focus { border-color: var(--accent); }
+  .form-row { display: flex; gap: 10px; }
+  .form-row label { flex: 1; }
+
+  #log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 4px 12px; }
+  .msg { display: flex; flex-direction: column; max-width: 100%; }
+  .msg .time { font-size: 10.5px; color: var(--muted); margin-top: 4px; padding: 0 4px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 14px 16px; font-size: 13.5px; line-height: 1.45;
+  }
+  .card h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 10px; }
+  .card.warn { border-color: #5b2b2b; background: #1d1518; }
+  .card.good { border-color: #1d4a33; background: #10201a; }
+  .card .row { display: flex; align-items: baseline; gap: 8px; padding: 5px 0; border-bottom: 1px dashed var(--line); }
+  .card .row:last-child { border-bottom: none; }
+  .chip { display: inline-block; background: #1d2c4d; border: 1px solid #2a3d66; border-radius: 8px;
+    padding: 2px 8px; font-size: 11.5px; color: var(--cyan); white-space: nowrap; }
+  .chip.red { color: var(--red); border-color: #5b2b2b; background: #2a1718; }
+  .chip.green { color: var(--green); border-color: #1d4a33; background: #12241c; }
+  .chip.amber { color: var(--amber); border-color: #5a4517; background: #241d0f; }
+  .muted { color: var(--muted); font-size: 12px; }
+  .suggest { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+
+  .deck { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 8px; }
+  .fc { perspective: 800px; height: 108px; cursor: pointer; }
+  .fc-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform .45s; }
+  .fc.flip .fc-inner { transform: rotateY(180deg); }
+  .fc-face { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center; text-align: center; padding: 10px; font-size: 12.5px;
+    border: 1px solid var(--line); background: linear-gradient(160deg, #16233d, #101a2e); }
+  .fc-face.a { transform: rotateY(180deg); background: linear-gradient(160deg, #1d3a2a, #12241c); border-color: #1d4a33; }
+
+  .timeline { position: relative; padding-left: 14px; }
+  .timeline::before { content: ""; position: absolute; left: 3px; top: 4px; bottom: 4px; width: 2px; background: var(--line); }
+  .tl-item { position: relative; padding: 5px 0 5px 10px; }
+  .tl-item::before { content: ""; position: absolute; left: -14.5px; top: 12px; width: 9px; height: 9px; border-radius: 50%;
+    background: var(--cyan); border: 2px solid var(--bg); }
+  .tl-item.study::before { background: var(--accent); }
+  .tl-time { font-size: 11px; color: var(--muted); }
+  .tl-title { font-size: 13.5px; }
+  .dl-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+  .dl-item:last-child { border-bottom: none; }
+
+  .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 20px 10px; }
+  .loader { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line);
+    border-top-color: var(--accent); animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  body.kiosk .left-col, body.kiosk header .tag, body.kiosk header .btn, body.kiosk header .spacer { display: none; }
+  body.kiosk .dash-col { overflow-y: auto; }
+  body.kiosk .panel { background: var(--panel2); }
+  body.kiosk .tl-title { font-size: 17px; }
+  body.kiosk .tl-time { font-size: 13px; }
+  @media (max-width: 900px) {
+    main { flex-direction: column; }
+    .dash-col { max-height: 45vh; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><span class="dot"></span> TimeOS <span class="tag">schedule &amp; study assistant · simulated Alexa+ experience · real MCP client</span></div>
+  <div class="spacer"></div>
+  <a class="btn ghost" href="/calendar.ics" target="_blank">ICS</a>
+  <button class="btn ghost" id="kioskLink" title="Open the TV view">📺 TV</button>
+  <button class="btn" id="googleBtn">Connect Google Calendar</button>
+</header>
+
+<main>
+  <section class="left-col">
+    <div class="panel">
+      <h4>Actions</h4>
+      <div class="actions" id="actions"></div>
+      <div id="formHost"></div>
+    </div>
+    <div class="panel" id="logPanel"><h4>Activity</h4><div id="log"><div class="empty">Use an action above to get started. Everything here calls the TimeOS MCP server directly.</div></div></div>
+  </section>
+
+  <section class="dash-col">
+    <div class="panel" id="todayPanel"><h4>Today</h4><div class="empty">Loading…</div></div>
+    <div class="panel" id="weekPanel"><h4>Upcoming</h4><div class="empty">Loading…</div></div>
+    <div class="panel" id="deadlinesPanel"><h4>Deadlines</h4><div class="empty">Loading…</div></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const MCP_URL = location.origin + "/mcp";
+let sessionId = null, authed = false;
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const fmt = (t) => { const d = new Date(t.replace("T", "T") + ":00"); if (isNaN(d)) return t;
+  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); };
+const dayLabel = (t) => { const d = new Date(t + "T00:00"); return d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }); };
+
+/* ---------- MCP client (spec 2025-11-25, Streamable HTTP) ---------- */
+async function mcpCall(method, params) {
+  const body = { jsonrpc: "2.0", id: (Math.random() * 1e9) | 0, method, params: params || {} };
+  const headers = { "Content-Type": "application/json", "Accept": "application/json, text/event-stream" };
+  if (sessionId) headers["Mcp-Session-Id"] = sessionId;
+  const res = await fetch(MCP_URL, { method: "POST", headers, body: JSON.stringify(body) });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  const sid = res.headers.get("mcp-session-id");
+  if (sid) sessionId = sid;
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message || "MCP error");
+  return data.result;
+}
+async function initMCP() {
+  await mcpCall("initialize", {
+    protocolVersion: "2025-11-25",
+    capabilities: {},
+    clientInfo: { name: "TimeOS Web Client", version: "1.0" },
+  });
+  await mcpCall("notifications/initialized", {});
+  authed = true;
+}
+async function callTool(name, args) {
+  if (!authed) await initMCP();
+  const r = await mcpCall("tools/call", { name, arguments: args || {} });
+  const c = (r.content || [])[0];
+  return (r.structuredContent ?? (c && (c.structuredContent || (c.text && JSON.parse(c.text))))) || {};
+}
+
+/* ---------- activity log ---------- */
+const log = $("#log");
+function logCard(html, title) {
+  const m = document.createElement("div");
+  m.className = "msg";
+  m.innerHTML = `<div class="card">${html}</div><div class="time">${title || ""} · ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</div>`;
+  log.prepend(m);
+  return m;
+}
+function card(title, inner, cls) {
+  return `<h4>${esc(title)}</h4>${inner}`;
+}
+function renderResult(res, action) {
+  if (!res || typeof res !== "object") return logCard(`<div class="muted">${esc(String(res ?? ""))}</div>`, action);
+  const kind = res.kind || "text";
+  let html = "";
+  if (kind === "error") html = card("Hmm", `<span class="muted">${esc(res.error)}</span>`, "warn");
+  else if (kind === "brief") {
+    const evs = (res.events || []).map((e) =>
+      `<div class="row"><span class="chip ${e.kind === "study" ? "amber" : ""}">${fmt(e.start)}–${fmt(e.end)}</span> <b>${esc(e.title)}</b></div>`).join("") || `<div class="muted">Nothing scheduled today.</div>`;
+    const dls = (res.deadlines || []).map((d) =>
+      `<div class="row"><span class="chip amber">due ${dayLabel(d.due)}</span> ${esc(d.title)} <span class="muted">(${d.hours_logged}/${d.effort_hours}h)</span></div>`).join("");
+    const cfs = (res.conflicts || []).map((c) =>
+      `<div class="row"><span class="chip red">conflict</span> ${esc(c.event.title)} ↔ ${esc(c.with.title)}</div>`).join("");
+    html = card("Today — " + dayLabel(res.day), evs + (dls ? `<div style="margin-top:8px"><b class="muted">Deadlines</b></div>${dls}` : "") + (cfs ? `<div style="margin-top:8px"><b class="muted">Conflicts</b></div>${cfs}` : ""));
+  }
+  else if (kind === "event") {
+    const e = res.event;
+    html = card("Added to your calendar", `<div class="row"><span class="chip green">${fmt(e.start)}–${fmt(e.end)}</span> <b>${esc(e.title)}</b></div>`);
+    if ((res.conflicts || []).length) {
+      html += card("⚠ Conflict", (res.conflicts || []).map((c) =>
+        `<div class="row"><span class="chip red">${fmt(c.start)}</span> ${esc(c.title)}</div>`).join("") +
+        `<div class="suggest">${(res.suggestions || []).map((s) =>
+          `<button class="btn small" data-move="${e.id}" data-start="${s.start}" data-end="${s.end}">Move to ${fmt(s.start)}</button>`).join("")}</div>`, "warn");
+    }
+  }
+  else if (kind === "calendar") {
+    html = card("Calendar", (res.events || []).map((e) =>
+      `<div class="row"><span class="chip">${fmt(e.start)}–${fmt(e.end)}</span> ${esc(e.title)}</div>`).join("") || `<div class="muted">No events.</div>`);
+  }
+  else if (kind === "slots") {
+    html = card("Free slots on " + dayLabel(res.day), (res.slots || []).map((s) =>
+      `<div class="row"><span class="chip green">${fmt(s.start)}–${fmt(s.end)}</span></div>`).join("") || `<div class="muted">No free slots.</div>`);
+  }
+  else if (kind === "deadline") {
+    const d = res.deadline;
+    html = card("Deadline tracked", `<div class="row"><span class="chip amber">due ${dayLabel(d.due)}</span> <b>${esc(d.title)}</b> <span class="muted">${esc(d.context || "")} · ${d.effort_hours}h</span></div>` +
+      `<div class="suggest"><button class="btn small" data-plan="${d.id}">Plan study sessions</button><button class="btn small" data-flash="${esc(d.title)}">Make flashcards</button></div>`);
+  }
+  else if (kind === "deadlines") {
+    html = card("Deadlines", (res.items || []).map((d) =>
+      `<div class="row"><span class="chip ${d.status === "done" ? "green" : "amber"}">${d.status}</span> ${esc(d.title)} <span class="muted">due ${dayLabel(d.due)} · ${d.hours_logged}/${d.effort_hours}h</span></div>`).join("") || `<div class="muted">None.</div>`);
+  }
+  else if (kind === "plan") {
+    const d = res.deadline;
+    html = card("Study plan — " + esc(d.title),
+      `<div class="muted">${d.sessions_needed} sessions × ${d.minutes_per_session} min ≈ ${Math.round(d.sessions_needed * d.minutes_per_session / 60)}h of ${d.effort_hours}h</div>` +
+      `<div style="margin-top:6px">${(res.steps || []).map((s) => `<div class="row">${s.step}. <span class="muted">${esc(s.focus)}</span> <span class="chip">${s.minutes} min</span></div>`).join("")}</div>` +
+      `<div class="suggest"><button class="btn primary small" data-schedule="${d.id}">Book these sessions</button></div>`);
+  }
+  else if (kind === "scheduled") {
+    html = card("Study sessions booked", (res.booked || []).map((b) =>
+      `<div class="row"><span class="chip amber">${fmt(b.start)}–${fmt(b.end)}</span> ${esc(b.title)}</div>`).join("") +
+      (res.remaining ? `<div class="muted" style="margin-top:6px">${res.remaining} more session(s) pending — no free slot found before the deadline.</div>` : ""), "good");
+  }
+  else if (kind === "flashcards") {
+    html = card("Flashcards — " + esc(res.topic),
+      `<div class="deck">${(res.cards || []).map((c) =>
+        `<div class="fc"><div class="fc-inner"><div class="fc-face q">${esc(c.q)}</div><div class="fc-face a">${esc(c.a)}</div></div></div>`).join("")}</div><div class="muted" style="margin-top:8px">Tap a card to flip it.</div>`);
+  }
+  else if (kind === "logged") {
+    html = card("Study time logged", `<div class="row"><span class="chip green">+${res.minutes} min</span> ${res.deadline ? "credited to “" + esc(res.deadline.title) + "”" : ""}</div>`);
+  }
+  else if (kind === "clash") {
+    const d = res.draft;
+    html = card("Clash — your call", `<div class="row"><span class="chip red">${fmt(d.start)}–${fmt(d.end)}</span> <b>${esc(d.title)}</b></div>` +
+      `<div class="muted" style="margin-top:4px">Overlaps: ${(res.conflicts||[]).map(c=>`<b>${esc(c.title)}</b> (${fmt(c.start)})${c.movable ? " · can move" : ""}`).join(", ") || "—"}</div>` +
+      `<div class="suggest"><button class="btn primary small" data-accept>✓ Accept the overlap</button>` +
+      (res.suggestions||[]).slice(0,3).map(s=>`<button class="btn small" data-add="${s.start}|${s.end}">Use ${fmt(s.start)}</button>`).join("") +
+      (res.conflicts||[]).filter(c=>c.movable).map(c=>`<button class="btn small" data-moveconf="${c.id}">Move “${esc(c.title)}” instead</button>`).join("") + `</div>`, "warn");
+  }
+  else if (kind === "deleted") { html = card("Removed", `<span class="muted">${esc(res.title)} was deleted.</span>`); }
+  else { html = `<div class="muted">${esc(JSON.stringify(res))}</div>`; }
+
+  const msg = logCard(html, action);
+  msg.querySelectorAll("[data-move]").forEach((b) => b.onclick = () =>
+    runTool("update_event", { event_id: +b.dataset.move, start: b.dataset.start, end: b.dataset.end }, "Move event"));
+  msg.querySelectorAll("[data-accept]").forEach((b) => b.onclick = () => {
+    const d = res.draft;
+    runTool(res.operation, { ...d, allow_overlap: true }, "Accept overlap");
+  });
+  msg.querySelectorAll("[data-add]").forEach((b) => {
+    const [s, e] = b.dataset.add.split("|");
+    b.onclick = () => runTool(res.operation, { ...res.draft, start: s, end: e }, "Use slot");
+  });
+  msg.querySelectorAll("[data-moveconf]").forEach((b) => b.onclick = async () => {
+    const d = res.draft;
+    const moveStart = window.prompt("When should this event move to? Use local YYYY-MM-DDTHH:MM. Nothing changes until you choose.");
+    if (!moveStart) return;
+    logCard(`<span class="loader"></span> moving <b>${esc("")}</b>…`, "Move conflicting event");
+    try {
+      const moved = await callTool("update_event", { event_id: +b.dataset.moveconf, start: moveStart });
+      const movedRes = JSON.parse(moved.content?.[0]?.text || "{}");
+      if (movedRes.kind === "clash") { renderResult(movedRes, "Move conflicting event"); return; }
+      const added = await callTool(res.operation, { ...d });
+      const addedRes = JSON.parse(added.content?.[0]?.text || "{}");
+      renderResult(addedRes, "Move & add");
+    } catch (err) {
+      logCard(card("Error", `<span class="muted">${esc(err.message)}</span>`, "warn"), "Move conflicting event");
+    }
+    refreshDash();
+  });
+  msg.querySelectorAll("[data-plan]").forEach((b) => b.onclick = () => runTool("create_study_plan", { deadline_id: +b.dataset.plan }, "Study plan"));
+  msg.querySelectorAll("[data-schedule]").forEach((b) => b.onclick = () => runTool("schedule_study", { deadline_id: +b.dataset.schedule }, "Book sessions"));
+  msg.querySelectorAll("[data-flash]").forEach((b) => b.onclick = () => runTool("create_flashcards", { topic: b.dataset.flash }, "Flashcards"));
+  msg.querySelectorAll(".fc").forEach((fc) => fc.onclick = () => fc.classList.toggle("flip"));
+}
+
+async function runTool(name, args, action) {
+  logCard(`<span class="loader"></span> calling <b>${esc(name)}</b>…`, action);
+  try {
+    const res = await callTool(name, args);
+    renderResult(res, action);
+  } catch (err) {
+    logCard(card("Error", `<span class="muted">${esc(err.message)}</span>`, "warn"), action);
+  }
+  refreshDash();
+}
+
+/* ---------- action forms ---------- */
+const ACTIONS = [
+  { name: "Add event", sub: "meeting · class · anything", tool: "add_event", fields: [
+    { n: "title", l: "Title", t: "text", req: true },
+    { n: "start", l: "Start", t: "datetime-local", req: true },
+    { n: "end", l: "End (optional)", t: "datetime-local" },
+    { n: "kind", l: "Kind", t: "select", opts: ["event", "meeting", "class", "study", "personal"] },
+  ]},
+  { name: "Add deadline", sub: "exam · essay · course · cert", tool: "add_deadline", fields: [
+    { n: "title", l: "Title", t: "text", req: true },
+    { n: "due", l: "Due", t: "datetime-local", req: true },
+    { n: "context", l: "Context (e.g. exam, school)", t: "text" },
+    { n: "effort_hours", l: "Effort (hours)", t: "number" },
+  ]},
+  { name: "Flashcards", sub: "from pasted notes", tool: "create_flashcards", fields: [
+    { n: "topic", l: "Topic", t: "text", req: true },
+    { n: "material", l: "Study notes (Q: / A:, term: def)", t: "textarea" },
+  ]},
+  { name: "Study plan", sub: "break down a deadline", tool: "list_deadlines_first" },
+];
+const VIEW_ACTIONS = [
+  { name: "Today's brief", tool: "get_daily_brief", args: {} },
+  { name: "This week", tool: "get_calendar", args: {} },
+  { name: "Free slots (45m)", tool: "suggest_slots", args: { duration_minutes: 45 } },
+  { name: "All deadlines", tool: "list_deadlines", args: {} },
+];
+
+const formHost = $("#formHost");
+function showForm(action) {
+  formHost.innerHTML = "";
+  if (action.tool === "list_deadlines_first") {  // study plan: pick an open deadline
+    callTool("list_deadlines", {}).then((res) => {
+      const items = (res.items || []).filter((d) => d.status !== "done");
+      if (!items.length) { formHost.innerHTML = `<div class="muted" style="margin-top:10px">No open deadlines — add one first.</div>`; return; }
+      const sel = `<select id="planSel">${items.map((d) => `<option value="${d.id}">${esc(d.title)} (due ${dayLabel(d.due)})</option>`).join("")}</select>`;
+      formHost.innerHTML = `<form class="inline"><label>Deadline${sel}</label><div><button class="btn primary" type="submit">Create study plan</button></div></form>`;
+      formHost.querySelector("form").onsubmit = (e) => {
+        e.preventDefault();
+        runTool("create_study_plan", { deadline_id: +formHost.querySelector("#planSel").value }, "Study plan");
+        formHost.innerHTML = "";
+      };
+    });
+    return;
+  }
+  let html = `<form class="inline">`;
+  for (const f of action.fields) {
+    if (f.t === "textarea") {
+      html += `<label>${f.l}<textarea name="${f.n}" rows="4"></textarea></label>`;
+    } else if (f.t === "select") {
+      html += `<label>${f.l}<select name="${f.n}">${f.opts.map((o) => `<option>${o}</option>`).join("")}</select></label>`;
+    } else {
+      html += `<label>${f.l}<input name="${f.n}" type="${f.t}" ${f.req ? "required" : ""}></label>`;
+    }
+  }
+  html += `<div><button class="btn primary" type="submit">Run</button></div></form>`;
+  formHost.innerHTML = html;
+  const form = formHost.querySelector("form");
+  const inputs = Object.fromEntries([...form.elements].filter((el) => el.name).map((el) => [el.name, el]));
+  form.onsubmit = (e) => {
+    e.preventDefault();
+    const args = {};
+    for (const f of action.fields) {
+      const v = inputs[f.n].value;
+      if (!v) { if (f.req) return; continue; }
+      args[f.n] = f.t === "number" ? +v : v;
+    }
+    runTool(action.tool, args, action.name);
+    formHost.innerHTML = "";
+  };
+}
+
+/* ---------- dashboard ---------- */
+async function refreshDash() {
+  try {
+    const [brief, cal, dls] = await Promise.all([
+      callTool("get_daily_brief", {}),
+      callTool("get_calendar", {}),
+      callTool("list_deadlines", { due_within_days: 14 }),
+    ]);
+    $("#todayPanel").innerHTML = `<h4>Today</h4>` +
+      `<div class="timeline">${(brief.events || []).map((e) =>
+        `<div class="tl-item ${e.kind}"><div class="tl-time">${fmt(e.start)} – ${fmt(e.end)}</div><div class="tl-title">${esc(e.title)}</div></div>`).join("") || `<div class="muted">Nothing scheduled.</div>`}</div>`;
+    $("#weekPanel").innerHTML = `<h4>Upcoming</h4>` +
+      `<div class="timeline">${(cal.events || []).filter((e) => e.start.slice(0, 10) !== brief.day).slice(0, 6).map((e) =>
+        `<div class="tl-item ${e.kind}"><div class="tl-time">${dayLabel(e.start)} · ${fmt(e.start)}</div><div class="tl-title">${esc(e.title)}</div></div>`).join("") || `<div class="muted">Nothing else this week.</div>`}</div>`;
+    $("#deadlinesPanel").innerHTML = `<h4>Deadlines</h4>` +
+      ((dls.items || []).map((d) =>
+        `<div class="dl-item"><span>${esc(d.title)} <span class="muted">· ${d.hours_logged}/${d.effort_hours}h</span></span><span class="chip amber">${dayLabel(d.due)}</span></div>`).join("") || `<div class="muted">No deadlines.</div>`);
+  } catch (e) { /* dashboard is best-effort */ }
+}
+
+/* ---------- google ---------- */
+async function refreshGoogle() {
+  try {
+    const r = await (await fetch("/google/status")).json();
+    const btn = $("#googleBtn");
+    if (r.connected) { btn.textContent = "✓ Google Calendar linked"; btn.classList.add("ok"); }
+    else { btn.textContent = "Connect Google Calendar"; btn.classList.remove("ok"); btn.onclick = async () => {
+      btn.textContent = "Waiting for consent…"; const res = await (await fetch("/google/connect")).json();
+      btn.textContent = res.ok ? "✓ Google Calendar linked" : "Connect Google Calendar";
+      if (!res.ok) alert(res.error || "Could not connect."); refreshDash();
+    }; }
+  } catch (e) { $("#googleBtn").style.display = "none"; }
+}
+
+/* ---------- boot ---------- */
+(async () => {
+  const actionsHost = $("#actions");
+  for (const a of ACTIONS) {
+    const b = document.createElement("button");
+    b.className = "action-btn";
+    b.innerHTML = `<span>${esc(a.name)}</span><span class="sub">${esc(a.sub)}</span>`;
+    b.onclick = () => showForm(a);
+    actionsHost.appendChild(b);
+  }
+  for (const a of VIEW_ACTIONS) {
+    const b = document.createElement("button");
+    b.className = "action-btn";
+    b.innerHTML = `<span>${esc(a.name)}</span>`;
+    b.onclick = () => runTool(a.tool, a.args, a.name);
+    actionsHost.appendChild(b);
+  }
+  $("#kioskLink").onclick = () => { window.open(location.origin + "/kiosk", "_blank"); };
+  const isKiosk = new URLSearchParams(location.search).has("kiosk") || location.pathname === "/kiosk";
+  if (isKiosk) {
+    document.body.classList.add("kiosk");
+    document.title = "TimeOS · Family screen";
+    setInterval(refreshDash, 5000);
+  } else {
+    try { await initMCP(); } catch (e) {
+      $("#log").innerHTML = `<div class="card warn">Cannot reach the MCP server at ${esc(MCP_URL)}. Start it with <code>uv run python -m timeos.main --seed</code></div>`;
+    }
+    refreshGoogle();
+    setInterval(refreshDash, 5000);
+  }
+  refreshDash();
+})();
+</script>
+</body>
+</html>

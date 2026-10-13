@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "timeos"
+version = "0.1.0"
+description = "TimeOS - a schedule & study assistant for any learner. Built for the Build, Ship, Shape: Amazon Developer Hackathon (Alexa+ track)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "mcp>=2.0,<3",
+]
+
+[project.optional-dependencies]
+google = [
+    "google-api-python-client>=2.150",
+    "google-auth-oauthlib>=1.2",
+]
+
+[project.scripts]
+timeos = "timeos.main:main"
+
+[tool.setuptools]
+packages = ["timeos", "timeos.tools"]
+
+[tool.setuptools.package-data]
+timeos = ["web/*.html"]
