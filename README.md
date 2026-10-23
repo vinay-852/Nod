@@ -1,4 +1,4 @@
-# TimeOS — your schedule that thinks ahead
+# Nod — your schedule that thinks ahead
 
 A self-hosted **MCP server** (spec 2025-11-25, Streamable HTTP) that coordinates
 a schedule and study time for any learner — meetings, classes, homework, exams,
